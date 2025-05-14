@@ -12,7 +12,17 @@ checksum = "67ba02a97a2bd10f4b59b25c7973101c79642302776489e030cd13cdab09ed15"
 name = "dive-computer-proto"
 version = "0.1.0"
 dependencies = [
+ "dive-deco",
  "postcard",
+ "serde",
+]
+
+[[package]]
+name = "dive-deco"
+version = "5.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "88a347d192ed30d9d1c3dc095ad0c86650d18ed46a24879962b5adb4f5ab69b9"
+dependencies = [
  "serde",
 ]
 

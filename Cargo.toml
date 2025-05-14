@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 serde = { version = "1.0.219", features = ["derive"], default-features = false }
 postcard = { version = "1.0.0", default-features = false }
+dive-deco = { version = "5.1.1", features = ["serde"] }
