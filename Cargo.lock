@@ -19,9 +19,9 @@ dependencies = [
 
 [[package]]
 name = "dive-deco"
-version = "5.2.2"
+version = "6.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dfbba8138194a5b32ca94a811c7393e5627c1b66bff71a112a859a3b726cb550"
+checksum = "26e1aee0cdf4e2b1ab19beb9fb469eaaee5b6faaa2ca7e78c18874297d564c60"
 dependencies = [
  "libm",
  "serde",

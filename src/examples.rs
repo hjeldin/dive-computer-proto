@@ -3,7 +3,7 @@
 //! This module contains examples demonstrating how to use the main functionality
 //! of the dive computer prototype library.
 
-use crate::commands::{Command, MessageType, Response, ResponsePayload, ResponseStatus};
+use crate::commands::{Command, Response, ResponsePayload};
 use crate::dive_calc::{calculate_ndl, calculate_ppo2, DiveProfile, GasType};
 use crate::protocol::{Message, MessageKind, ProtocolError};
 use crate::sensor::{ReadingType, Sensor, SensorResponse};
@@ -96,10 +96,10 @@ pub fn dive_calc_example() {
 
     // Calculate no-decompression limit for current depth
     let depth_meters = dive_profile.current_depth_cm / 100;
-    let ndl = calculate_ndl(depth_meters as u16, dive_profile.gas_type);
+    let ndl = calculate_ndl(depth_meters, dive_profile.gas_type);
 
     // Calculate PPO2 for current depth
-    let ppo2 = calculate_ppo2(depth_meters as u16, dive_profile.gas_type);
+    let ppo2 = calculate_ppo2(depth_meters, dive_profile.gas_type);
 
     // Example with nitrox
     let nitrox_profile = DiveProfile::new(GasType::Nitrox { oxygen_percent: 32 });

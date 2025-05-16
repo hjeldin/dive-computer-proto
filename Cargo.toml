@@ -6,4 +6,20 @@ edition = "2021"
 [dependencies]
 serde = { version = "1.0.219", features = ["derive"], default-features = false }
 postcard = { version = "1.0.0", default-features = false }
-dive-deco = { version = "5.2.2", features = ["serde"] }
+dive-deco = { version = "6.0.1", features = ["no-std", "serde"] }
+
+[[example]]
+name = "sensor_example"
+path = "examples/sensor_example.rs"
+
+[[example]]
+name = "command_example"
+path = "examples/command_example.rs"
+
+[[example]]
+name = "dive_calc_example"
+path = "examples/dive_calc_example.rs"
+
+[[example]]
+name = "protocol_example"
+path = "examples/protocol_example.rs"
