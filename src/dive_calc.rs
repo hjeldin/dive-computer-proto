@@ -3,7 +3,8 @@
 //! This module provides functions and types for performing dive-related calculations
 //! such as decompression limits, gas consumption, and other diving metrics.
 
-use serde::{Serialize, Deserialize};
+use dive_deco::{BuhlmannModel, DecoModel, Depth, Gas, Time};
+use serde::{Deserialize, Serialize};
 
 /// Gas type used in diving
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Eq, PartialEq)]
@@ -13,7 +14,27 @@ pub enum GasType {
     /// Enriched air nitrox with specified oxygen percentage
     Nitrox { oxygen_percent: u8 },
     /// Trimix with specified oxygen, helium, and nitrogen percentages
-    Trimix { oxygen_percent: u8, helium_percent: u8 },
+    Trimix {
+        oxygen_percent: u8,
+        helium_percent: u8,
+    },
+}
+
+/// Convert a GasType into a Gas (for use with deco model crate)
+impl GasType {
+    pub fn into_gas(&self) -> Gas {
+        match self {
+            GasType::Air => Gas::air(),
+            GasType::Nitrox { oxygen_percent } => Gas::new(*oxygen_percent as f64 / 100.0, 0.0),
+            GasType::Trimix {
+                oxygen_percent,
+                helium_percent,
+            } => Gas::new(
+                *oxygen_percent as f64 / 100.0,
+                *helium_percent as f64 / 100.0,
+            ),
+        }
+    }
 }
 
 /// Represents a dive profile with depth and time information
@@ -26,26 +47,29 @@ pub struct DiveProfile {
     /// Dive duration in seconds
     pub duration_seconds: u32,
     /// Gas type being used
-    pub gas: GasType,
+    pub gas_type: GasType,
     /// Water temperature in degrees Celsius (scaled by 10, e.g., 215 = 21.5°C)
     pub temperature_celsius_x10: i16,
     /// Ascent rate in cm/minute
     pub ascent_rate_cm_per_min: u16,
     /// Descent rate in cm/minute
     pub descent_rate_cm_per_min: u16,
+    /// model
+    pub model: BuhlmannModel,
 }
 
 impl DiveProfile {
     /// Creates a new dive profile with default values
-    pub fn new(gas: GasType) -> Self {
+    pub fn new(gas_type: GasType) -> Self {
         DiveProfile {
             max_depth_cm: 0,
             current_depth_cm: 0,
             duration_seconds: 0,
-            gas,
+            gas_type,
             temperature_celsius_x10: 200, // 20.0°C
             ascent_rate_cm_per_min: 0,
             descent_rate_cm_per_min: 0,
+            model: BuhlmannModel::default(),
         }
     }
 
@@ -60,6 +84,13 @@ impl DiveProfile {
     /// Increments the dive duration by the specified number of seconds
     pub fn increment_duration(&mut self, seconds: u32) {
         self.duration_seconds += seconds;
+        // a very simple example of model update, assuming that all changes to dive profile are followed by a duration increment
+        let gas = self.gas_type.into_gas();
+        self.model.record(
+            Depth::from_meters(self.current_depth_cm as f32 / 100.0),
+            Time::from_seconds(seconds),
+            &gas,
+        );
     }
 
     /// Updates the water temperature
@@ -70,46 +101,12 @@ impl DiveProfile {
 
 /// Calculates the no-decompression limit (NDL) in minutes for a given depth and gas
 ///
-/// This is a simplified calculation and should not be used for actual dive planning.
-/// Real dive computers use complex algorithms and tables for NDL calculations.
+/// This is a simplified static calculation assuming instant travel to the depth and no prior tissue saturation.
 pub fn calculate_ndl(depth_meters: u16, gas: GasType) -> u16 {
-    // Very simplified NDL calculation
-    // In a real dive computer, this would use decompression models like Bühlmann ZH-L16
-    match gas {
-        GasType::Air => {
-            // Simple formula for air: NDL decreases with depth
-            if depth_meters < 10 {
-                return 219; // Essentially unlimited for recreational diving
-            } else if depth_meters < 15 {
-                return 150;
-            } else if depth_meters < 20 {
-                return 75;
-            } else if depth_meters < 25 {
-                return 40;
-            } else if depth_meters < 30 {
-                return 25;
-            } else if depth_meters < 35 {
-                return 20;
-            } else if depth_meters < 40 {
-                return 15;
-            } else {
-                return 10;
-            }
-        }
-        GasType::Nitrox { oxygen_percent } => {
-            // Nitrox extends NDL due to lower nitrogen content
-            let air_ndl = calculate_ndl(depth_meters, GasType::Air);
-            let extension_factor = (100 - oxygen_percent) as f32 / 79.0;
-            (air_ndl as f32 / extension_factor) as u16
-        }
-        GasType::Trimix { oxygen_percent, helium_percent: _ } => {
-            // Simplified calculation for trimix
-            // In reality, this would be much more complex
-            let air_ndl = calculate_ndl(depth_meters, GasType::Air);
-            let extension_factor = (100 - oxygen_percent) as f32 / 79.0;
-            (air_ndl as f32 / extension_factor) as u16
-        }
-    }
+    let mut model = BuhlmannModel::default();
+    let gas = gas.into_gas();
+    model.record(Depth::from_meters(depth_meters), Time::zero(), &gas);
+    model.ndl().as_minutes() as u16
 }
 
 /// Calculates the partial pressure of oxygen (PPO2) for a given depth and gas
@@ -117,13 +114,16 @@ pub fn calculate_ndl(depth_meters: u16, gas: GasType) -> u16 {
 /// Returns the PPO2 value multiplied by 100 (e.g., 121 = 1.21 bar)
 pub fn calculate_ppo2(depth_meters: u16, gas: GasType) -> u16 {
     let ambient_pressure = (depth_meters as f32 / 10.0) + 1.0; // in bar
-    
+
     let oxygen_fraction = match gas {
         GasType::Air => 0.21,
         GasType::Nitrox { oxygen_percent } => oxygen_percent as f32 / 100.0,
-        GasType::Trimix { oxygen_percent, helium_percent: _ } => oxygen_percent as f32 / 100.0,
+        GasType::Trimix {
+            oxygen_percent,
+            helium_percent: _,
+        } => oxygen_percent as f32 / 100.0,
     };
-    
+
     (ambient_pressure * oxygen_fraction * 100.0) as u16
 }
 
@@ -146,14 +146,19 @@ pub fn calculate_ead(depth_meters: u16, gas: GasType) -> Option<u16> {
         GasType::Nitrox { oxygen_percent } => {
             let nitrogen_fraction = (100 - oxygen_percent) as f32 / 100.0;
             let air_nitrogen_fraction = 0.79;
-            let ead = ((depth_meters as f32 + 10.0) * nitrogen_fraction / air_nitrogen_fraction) - 10.0;
+            let ead =
+                ((depth_meters as f32 + 10.0) * nitrogen_fraction / air_nitrogen_fraction) - 10.0;
             Some(ead as u16)
         }
-        GasType::Trimix { oxygen_percent, helium_percent } => {
+        GasType::Trimix {
+            oxygen_percent,
+            helium_percent,
+        } => {
             let nitrogen_percent = 100 - oxygen_percent - helium_percent;
             let nitrogen_fraction = nitrogen_percent as f32 / 100.0;
             let air_nitrogen_fraction = 0.79;
-            let ead = ((depth_meters as f32 + 10.0) * nitrogen_fraction / air_nitrogen_fraction) - 10.0;
+            let ead =
+                ((depth_meters as f32 + 10.0) * nitrogen_fraction / air_nitrogen_fraction) - 10.0;
             Some(ead as u16)
         }
     }

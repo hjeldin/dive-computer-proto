@@ -12,9 +12,26 @@ checksum = "67ba02a97a2bd10f4b59b25c7973101c79642302776489e030cd13cdab09ed15"
 name = "dive-computer-proto"
 version = "0.1.0"
 dependencies = [
+ "dive-deco",
  "postcard",
  "serde",
 ]
+
+[[package]]
+name = "dive-deco"
+version = "6.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26e1aee0cdf4e2b1ab19beb9fb469eaaee5b6faaa2ca7e78c18874297d564c60"
+dependencies = [
+ "libm",
+ "serde",
+]
+
+[[package]]
+name = "libm"
+version = "0.2.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 
 [[package]]
 name = "postcard"
